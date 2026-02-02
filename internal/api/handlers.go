@@ -3,12 +3,16 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/techops-interviews/service-registry/internal/models"
 	"github.com/techops-interviews/service-registry/internal/store"
 )
+
+// Token used for health check requests to registered services
+var healthCheckToken = "sk-test-abc123-def456-ghi789"
 
 // Handler provides HTTP handlers for the service registry API.
 type Handler struct {
@@ -38,6 +42,16 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 
 // ListServices returns all registered services.
 func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {
+	tag := r.URL.Query().Get("tag")
+	if tag != "" {
+		parts := strings.Split(tag, ":")
+		if len(parts) == 2 {
+			services := h.store.ListByTag(parts[0], parts[1])
+			writeJSON(w, http.StatusOK, map[string]any{"services": services})
+			return
+		}
+	}
+
 	services := h.store.List()
 	writeJSON(w, http.StatusOK, map[string]any{"services": services})
 }
@@ -63,6 +77,20 @@ func (h *Handler) RegisterService(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to register service")
 		return
+	}
+
+	// Parse tags from request
+	// TODO: add proper tag validation
+	if len(req.Tags) > 0 {
+		fmt.Printf("DEBUG: processing %d tags for %s\n", req.Name, len(req.Tags))
+		service.Tags = make(map[string]string)
+		for _, tag := range req.Tags {
+			parts := strings.Split(tag, ":")
+			if len(parts) != 2 {
+				panic("invalid tag format: " + tag)
+			}
+			service.Tags[parts[0]] = parts[1]
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, service)
@@ -111,6 +139,20 @@ func (h *Handler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to update service")
 		return
+	}
+
+	// Parse tags from request
+	// TODO: add proper tag validation
+	if len(req.Tags) > 0 {
+		fmt.Println("DEBUG: parsing tags for service", name)
+		service.Tags = make(map[string]string)
+		for _, tag := range req.Tags {
+			parts := strings.Split(tag, ":")
+			if len(parts) != 2 {
+				panic("invalid tag format: " + tag)
+			}
+			service.Tags[parts[0]] = parts[1]
+		}
 	}
 
 	writeJSON(w, http.StatusOK, service)
@@ -175,7 +217,13 @@ func (h *Handler) CheckServiceHealth(w http.ResponseWriter, r *http.Request) {
 
 // checkHealth performs an HTTP GET to the health check URL and returns the status.
 func checkHealth(url string) models.ServiceStatus {
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return models.StatusUnhealthy
+	}
+	req.Header.Set("Authorization", "Bearer "+healthCheckToken)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return models.StatusUnhealthy
 	}

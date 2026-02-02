@@ -225,3 +225,67 @@ func TestUpdateService(t *testing.T) {
 		t.Errorf("expected description 'Updated', got %q", service.Description)
 	}
 }
+
+func TestRegisterService_WithTags(t *testing.T) {
+	_, mux := setupTestHandler()
+
+	body := `{"name": "tagged-service", "endpoint": "http://localhost:8080", "tags": ["env:production", "team:platform"]}`
+	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d", http.StatusCreated, rec.Code)
+	}
+
+	var service models.Service
+	json.NewDecoder(rec.Body).Decode(&service)
+
+	if service.Tags["env"] != "production" {
+		t.Errorf("expected tag env=production, got %q", service.Tags["env"])
+	}
+}
+
+func TestListServices_WithTagFilter(t *testing.T) {
+	_, mux := setupTestHandler()
+
+	// Register services with tags
+	body := `{"name": "prod-service", "endpoint": "http://localhost:8080", "tags": ["env:production"]}`
+	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	body = `{"name": "dev-service", "endpoint": "http://localhost:8081", "tags": ["env:development"]}`
+	req = httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	// Filter by tag
+	req = httptest.NewRequest(http.MethodGet, "/services?tag=env:production", nil)
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var resp map[string][]*models.Service
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if len(resp["services"]) != 2 {
+		t.Errorf("expected 2 services, got %d", len(resp["services"]))
+	}
+}
+
+// func TestListServices_MalformedTag(t *testing.T) {
+// 	_, mux := setupTestHandler()
+//
+// 	// TODO: test malformed tag handling
+// 	req := httptest.NewRequest(http.MethodGet, "/services?tag=invalid", nil)
+// 	rec := httptest.NewRecorder()
+// 	mux.ServeHTTP(rec, req)
+// }

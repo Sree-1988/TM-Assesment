@@ -119,3 +119,14 @@ func (s *Store) UpdateStatus(name string, status models.ServiceStatus) error {
 	service.UpdatedAt = time.Now()
 	return nil
 }
+ok
+// ListByTag returns services matching the given tag key and value.
+func (s *Store) ListByTag(key, value string) []*models.Service {
+	var result []*models.Service
+	for _, svc := range s.services {
+		if svc.Tags[key] == value {
+			result = append(result, svc)
+		}
+	}
+	return result
+}
