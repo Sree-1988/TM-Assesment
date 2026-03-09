@@ -41,18 +41,17 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListServices returns all registered services.
+// Optionally filter by tag using the ?tag=<tag> query parameter.
 func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {
 	tag := r.URL.Query().Get("tag")
+	
+	var services []*models.Service
 	if tag != "" {
-		parts := strings.Split(tag, ":")
-		if len(parts) == 2 {
-			services := h.store.ListByTag(parts[0], parts[1])
-			writeJSON(w, http.StatusOK, map[string]any{"services": services})
-			return
-		}
+		services = h.store.FilterByTag(tag)
+	} else {
+		services = h.store.List()
 	}
-
-	services := h.store.List()
+	
 	writeJSON(w, http.StatusOK, map[string]any{"services": services})
 }
 
