@@ -226,6 +226,43 @@ func TestUpdateService(t *testing.T) {
 	}
 }
 
+func TestUpdateService_WithTags(t *testing.T) {
+	_, mux := setupTestHandler()
+
+	// Register a service first
+	body := `{"name": "my-service", "endpoint": "http://localhost:8080"}`
+	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	// Update the service with tags
+	updateBody := `{"tags": ["production", "api"]}`
+	req = httptest.NewRequest(http.MethodPut, "/services/my-service", bytes.NewBufferString(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var service models.Service
+	json.NewDecoder(rec.Body).Decode(&service)
+
+	if len(service.Tags) != 2 {
+		t.Errorf("expected 2 tags, got %d", len(service.Tags))
+	}
+
+	if service.Tags[0] != "production" {
+		t.Errorf("expected first tag 'production', got %q", service.Tags[0])
+	}
+
+	if service.Tags[1] != "api" {
+		t.Errorf("expected second tag 'api', got %q", service.Tags[1])
+	}
+}
+
 func TestRegisterService_WithTags(t *testing.T) {
 	_, mux := setupTestHandler()
 

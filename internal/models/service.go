@@ -40,6 +40,17 @@ type UpdateServiceRequest struct {
 	Tags           []string `json:"tags,omitempty"`
 }
 
+// Validate checks that tags are valid if provided.
+func (r UpdateServiceRequest) Validate() error {
+	// Validate tags if provided
+	for _, tag := range r.Tags {
+		if err := ValidateTag(tag); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Validate checks that required fields are present for registration.
 func (r RegisterServiceRequest) Validate() error {
 	if r.Name == "" {

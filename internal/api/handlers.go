@@ -130,6 +130,11 @@ func (h *Handler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	service, err := h.store.Update(name, req)
 	if err != nil {
 		if errors.Is(err, models.ErrServiceNotFound) {
@@ -138,20 +143,6 @@ func (h *Handler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to update service")
 		return
-	}
-
-	// Parse tags from request
-	// TODO: add proper tag validation
-	if len(req.Tags) > 0 {
-		fmt.Println("DEBUG: parsing tags for service", name)
-		service.Tags = make(map[string]string)
-		for _, tag := range req.Tags {
-			parts := strings.Split(tag, ":")
-			if len(parts) != 2 {
-				panic("invalid tag format: " + tag)
-			}
-			service.Tags[parts[0]] = parts[1]
-		}
 	}
 
 	writeJSON(w, http.StatusOK, service)
