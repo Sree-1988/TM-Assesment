@@ -229,6 +229,99 @@ func TestUpdateService(t *testing.T) {
 func TestRegisterService_WithTags(t *testing.T) {
 	_, mux := setupTestHandler()
 
+	body := `{"name": "api-service", "endpoint": "http://localhost:8080", "tags": ["production", "python", "api"]}`
+	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d", http.StatusCreated, rec.Code)
+	}
+
+	var service models.Service
+	json.NewDecoder(rec.Body).Decode(&service)
+
+	if len(service.Tags) != 3 {
+		t.Errorf("expected 3 tags, got %d", len(service.Tags))
+	}
+
+	if service.Tags[0] != "production" {
+		t.Errorf("expected first tag 'production', got %q", service.Tags[0])
+	}
+}
+
+func TestListServices_FilterByTag(t *testing.T) {
+	_, mux := setupTestHandler()
+
+	// Register service with tags
+	body1 := `{"name": "api-service", "endpoint": "http://api:8080", "tags": ["production", "api"]}`
+	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body1))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	// Register another service with different tags
+	body2 := `{"name": "db-service", "endpoint": "http://db:5432", "tags": ["production", "database"]}`
+	req = httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body2))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	// Register service without tags
+	body3 := `{"name": "dev-service", "endpoint": "http://dev:3000"}`
+	req = httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body3))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	// Filter by "api" tag - should return only api-service
+	req = httptest.NewRequest(http.MethodGet, "/services?tag=api", nil)
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var resp map[string][]models.Service
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if len(resp["services"]) != 1 {
+		t.Errorf("expected 1 service with 'api' tag, got %d", len(resp["services"]))
+	}
+
+	if resp["services"][0].Name != "api-service" {
+		t.Errorf("expected service 'api-service', got %q", resp["services"][0].Name)
+	}
+
+	// Filter by "production" tag - should return api-service and db-service
+	req = httptest.NewRequest(http.MethodGet, "/services?tag=production", nil)
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if len(resp["services"]) != 2 {
+		t.Errorf("expected 2 services with 'production' tag, got %d", len(resp["services"]))
+	}
+
+	// Filter by non-existent tag
+	req = httptest.NewRequest(http.MethodGet, "/services?tag=nonexistent", nil)
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if len(resp["services"]) != 0 {
+		t.Errorf("expected 0 services with non-existent tag, got %d", len(resp["services"]))
+	}
+}
+
+func TestRegisterService_WithTags(t *testing.T) {
+	_, mux := setupTestHandler()
+
 	body := `{"name": "tagged-service", "endpoint": "http://localhost:8080", "tags": ["env:production", "team:platform"]}`
 	req := httptest.NewRequest(http.MethodPost, "/services", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
