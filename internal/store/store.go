@@ -35,6 +35,7 @@ func (s *Store) Register(req models.RegisterServiceRequest) (*models.Service, er
 		Endpoint:       req.Endpoint,
 		HealthCheckURL: req.HealthCheckURL,
 		Description:    req.Description,
+		Tags:           req.Tags,
 		Status:         models.StatusUnknown,
 		RegisteredAt:   now,
 		UpdatedAt:      now,
@@ -87,6 +88,9 @@ func (s *Store) Update(name string, req models.UpdateServiceRequest) (*models.Se
 	if req.Description != "" {
 		service.Description = req.Description
 	}
+	if len(req.Tags) > 0 {
+		service.Tags = req.Tags
+	}
 	service.UpdatedAt = time.Now()
 
 	return service, nil
@@ -119,14 +123,23 @@ func (s *Store) UpdateStatus(name string, status models.ServiceStatus) error {
 	service.UpdatedAt = time.Now()
 	return nil
 }
-ok
-// ListByTag returns services matching the given tag key and value.
-func (s *Store) ListByTag(key, value string) []*models.Service {
-	var result []*models.Service
+
+// FilterByTag returns services that have the specified tag.
+func (s *Store) FilterByTag(tag string) []*models.Service {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]*models.Service, 0)
 	for _, svc := range s.services {
-		if svc.Tags[key] == value {
-			result = append(result, svc)
+		for _, t := range svc.Tags {
+			if t == tag {
+				result = append(result, svc)
+				break
+			}
 		}
+	}
+	return result
+}
 	}
 	return result
 }
