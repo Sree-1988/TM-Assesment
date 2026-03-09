@@ -54,7 +54,7 @@ tidy    Tidy go modules
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check for the registry |
-| GET | `/services` | List all registered services |
+| GET | `/services` | List all registered services (optionally filter by `?tag=<tag>`) |
 | POST | `/services` | Register a new service |
 | GET | `/services/{name}` | Get a specific service |
 | PUT | `/services/{name}` | Update a service |
@@ -86,6 +86,16 @@ Check a service's health:
 
 ```bash
 curl http://localhost:8080/services/my-api/health
+```
+
+Filter services by tag:
+
+```bash
+# List all services with 'production' tag
+curl http://localhost:8080/services?tag=production
+
+# List all services with 'api' tag
+curl http://localhost:8080/services?tag=api
 ```
 
 ## Configuration
