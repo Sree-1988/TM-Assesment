@@ -72,7 +72,8 @@ curl -X POST http://localhost:8080/services \
     "name": "my-api",
     "endpoint": "http://localhost:3000",
     "health_check_url": "http://localhost:3000/health",
-    "description": "My API service"
+    "description": "My API service",
+    "tags": ["production", "api"]
   }'
 ```
 
